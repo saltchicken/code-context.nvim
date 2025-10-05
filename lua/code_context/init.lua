@@ -24,7 +24,8 @@ function M.run_command(opts)
 	vim.notify("🚀 Running code_context...", vim.log.levels.INFO)
 
 	vim.fn.jobstart(command, {
-		cwd = vim.fn.getcwd(),
+		-- Change this line to run from the current file's directory
+		cwd = vim.fn.expand("%:p:h"),
 		stdout_buffered = true,
 		stderr_buffered = true,
 		on_stdout = function(_, data)
