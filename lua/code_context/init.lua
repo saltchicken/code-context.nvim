@@ -25,7 +25,8 @@ function M.run_command(opts)
 
 	vim.fn.jobstart(command, {
 		-- Change this line to run from the current file's directory
-		cwd = vim.fn.expand("%:p:h"),
+		-- cwd = vim.fn.expand("%:p:h"),
+		cwd = vim.fn.getcwd(),
 		stdout_buffered = true,
 		stderr_buffered = true,
 		on_stdout = function(_, data)
