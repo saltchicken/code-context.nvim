@@ -12,11 +12,13 @@ end
 
 -- The core function that runs the external command asynchronously.
 function M.run_command(opts)
-	local args_str = opts.args or ""
-	local args_tbl = vim.split(args_str, "%s+")
+	-- REMOVED THE OLD STRING SPLITTING LOGIC
+	-- local args_str = opts.args or ""
+	-- local args_tbl = vim.split(args_str, "%s+")
 
 	local command = { "code_context" }
-	for _, arg in ipairs(args_tbl) do
+	-- USE THE MORE ROBUST 'fargs' TABLE DIRECTLY
+	for _, arg in ipairs(opts.fargs or {}) do
 		table.insert(command, arg)
 	end
 
@@ -24,8 +26,7 @@ function M.run_command(opts)
 	vim.notify("🚀 Running code_context...", vim.log.levels.INFO)
 
 	vim.fn.jobstart(command, {
-		-- Change this line to run from the current file's directory
-		-- cwd = vim.fn.expand("%:p:h"),
+		-- Use Neovim's current working directory, which is more reliable.
 		cwd = vim.fn.getcwd(),
 		stdout_buffered = true,
 		stderr_buffered = true,
