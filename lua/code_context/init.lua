@@ -8,21 +8,17 @@ function M.setup(opts)
 	M.config = vim.tbl_extend("force", M.config, opts or {})
 end
 
--- Function to display output in a floating window
+-- This helper function to show the window is unchanged
 local function show_in_floating_win(lines)
-	-- Use vim.schedule to safely call API functions from an async context
 	vim.schedule(function()
-		local buf = vim.api.nvim_create_buf(false, true) -- create a new scratch buffer
+		local buf = vim.api.nvim_create_buf(false, true)
 		vim.api.nvim_buf_set_option(buf, "bufhidden", "wipe")
 		vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-		vim.api.nvim_buf_set_name(buf, "[code-context-tree]")
-		vim.api.nvim_buf_set_option(buf, "filetype", "text") -- optional: for basic syntax
+		vim.api.nvim_buf_set_name(buf, "[code-context-output]")
+		vim.api.nvim_buf_set_option(buf, "filetype", "text")
 
-		-- Calculate window dimensions to be 80% of the editor size
 		local width = math.floor(vim.o.columns * 0.8)
 		local height = math.floor(vim.o.lines * 0.8)
-
-		-- Calculate position to center the window
 		local row = math.floor((vim.o.lines - height) / 2)
 		local col = math.floor((vim.o.columns - width) / 2)
 
@@ -37,22 +33,18 @@ local function show_in_floating_win(lines)
 		}
 
 		local win = vim.api.nvim_open_win(buf, true, win_opts)
-
-		-- Add a keymap to close the floating window with 'q'
 		vim.api.nvim_buf_set_keymap(buf, "n", "q", "<Cmd>close<CR>", { noremap = true, silent = true })
 	end)
 end
 
-function M.run_command(opts)
-	local command = { "code_context" }
-	local is_tree_mode = false -- Flag to detect --tree argument
+-- REFACTORED: The core function now takes an 'output_target' parameter
+function M.run_command(opts, output_target)
+	-- Default to 'clipboard' if no target is specified
+	output_target = output_target or "clipboard"
 
-	-- Check for --tree argument and build the command
+	local command = { "code_context" }
 	for _, arg in ipairs(opts.fargs or {}) do
 		table.insert(command, arg)
-		if arg == "--tree" then
-			is_tree_mode = true
-		end
 	end
 
 	local output_lines = {}
@@ -100,13 +92,11 @@ function M.run_command(opts)
 				return
 			end
 
-			-- MODIFIED: Conditional logic based on --tree argument
-			if is_tree_mode then
-				-- If --tree is used, show output in a floating window
+			-- This logic now uses the 'output_target' to decide what to do
+			if output_target == "float" then
 				show_in_floating_win(output_lines)
-				vim.notify("✅ Tree view displayed.", vim.log.levels.INFO)
-			else
-				-- Otherwise, copy to clipboard as before
+				vim.notify("✅ Output displayed in floating window.", vim.log.levels.INFO)
+			else -- The default is 'clipboard'
 				local output_string = table.concat(output_lines, "\n")
 				vim.fn.setreg("+", output_string)
 				vim.notify("✅ Context copied to clipboard (" .. #output_lines .. " lines).", vim.log.levels.INFO)
@@ -115,13 +105,38 @@ function M.run_command(opts)
 	})
 end
 
+-- This command now checks for --tree to decide the output target
 vim.api.nvim_create_user_command("CodeContext", function(opts)
-	M.run_command(opts)
+	local is_tree_mode = false
+	for _, arg in ipairs(opts.fargs or {}) do
+		if arg == "--tree" then
+			is_tree_mode = true
+			break
+		end
+	end
+
+	if is_tree_mode then
+		M.run_command(opts, "float")
+	else
+		M.run_command(opts, "clipboard")
+	end
 end, {
 	nargs = "*",
-	desc = "Run code_context. Use --tree to show in a floating window.",
+	desc = "Run code_context and copy. Use --tree to show in a float.",
 	complete = function()
 		return { "--preset ", "--tree" }
+	end,
+})
+
+-- NEW: A dedicated command that always outputs to the floating window
+vim.api.nvim_create_user_command("CodeContextFloat", function(opts)
+	M.run_command(opts, "float")
+end, {
+	nargs = "*",
+	desc = "Run code_context and display output in a floating window.",
+	complete = function()
+		-- No need to suggest --tree, since that's the default for this command
+		return { "--preset " }
 	end,
 })
 
