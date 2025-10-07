@@ -12,22 +12,14 @@ end
 
 -- The core function that runs the external command asynchronously.
 function M.run_command(opts)
-	-- REMOVED THE OLD STRING SPLITTING LOGIC
-	-- local args_str = opts.args or ""
-	-- local args_tbl = vim.split(args_str, "%s+")
-
 	local command = { "code_context" }
-	-- USE THE MORE ROBUST 'fargs' TABLE DIRECTLY
 	for _, arg in ipairs(opts.fargs or {}) do
 		table.insert(command, arg)
 	end
 
 	local output_lines = {}
-	-- vim.notify("🚀 Running code_context...", vim.log.levels.INFO)
 
 	vim.fn.jobstart(command, {
-		-- Use Neovim's current working directory, which is more reliable.
-		-- cwd = vim.fn.expand("%:p:h"),
 		cwd = vim.fn.getcwd(),
 		stdout_buffered = true,
 		stderr_buffered = true,
@@ -54,6 +46,7 @@ function M.run_command(opts)
 				end
 			end
 		end,
+		-- MODIFIED SECTION: This callback now handles copying the output.
 		on_exit = function(_, exit_code)
 			if exit_code ~= 0 then
 				vim.notify("code_context exited with code " .. exit_code, vim.log.levels.WARN)
@@ -61,21 +54,17 @@ function M.run_command(opts)
 			end
 
 			if #output_lines == 0 then
-				return
+				return -- Do nothing if there's no output
 			end
 
-			local last_line = output_lines[#output_lines]
-			if string.match(last_line, "✅ Context copied to clipboard.") then
-				return
-			else
-				vim.cmd("new")
-				vim.api.nvim_buf_set_option(0, "bufhidden", "wipe")
-				vim.api.nvim_buf_set_option(0, "buftype", "nofile")
-				vim.api.nvim_buf_set_option(0, "swapfile", false)
-				vim.api.nvim_buf_set_lines(0, 0, -1, false, output_lines)
-				vim.api.nvim_buf_set_name(0, "[code-context]")
-				vim.notify("✅ code_context output displayed in new buffer.", vim.log.levels.INFO)
-			end
+			-- 1. Combine all output lines into a single string.
+			local output_string = table.concat(output_lines, "\n")
+
+			-- 2. Set the system clipboard register ('+').
+			vim.fn.setreg("+", output_string)
+
+			-- 3. Notify the user of success.
+			vim.notify("✅ Context copied to clipboard (" .. #output_lines .. " lines).", vim.log.levels.INFO)
 		end,
 	})
 end
@@ -85,9 +74,11 @@ vim.api.nvim_create_user_command("CodeContext", function(opts)
 	M.run_command(opts)
 end, {
 	nargs = "*",
-	desc = "Run code_context. E.g., :CodeContext --preset python --copy",
+	-- Updated description to remove --copy
+	desc = "Run code_context. E.g., :CodeContext --preset python",
+	-- Updated completion to remove --copy
 	complete = function()
-		return { "--preset ", "--tree", "--copy" }
+		return { "--preset ", "--tree" }
 	end,
 })
 
