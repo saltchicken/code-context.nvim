@@ -23,10 +23,11 @@ function M.run_command(opts)
 	end
 
 	local output_lines = {}
-	vim.notify("🚀 Running code_context...", vim.log.levels.INFO)
+	-- vim.notify("🚀 Running code_context...", vim.log.levels.INFO)
 
 	vim.fn.jobstart(command, {
 		-- Use Neovim's current working directory, which is more reliable.
+		-- cwd = vim.fn.expand("%:p:h"),
 		cwd = vim.fn.getcwd(),
 		stdout_buffered = true,
 		stderr_buffered = true,
@@ -86,7 +87,7 @@ end, {
 	nargs = "*",
 	desc = "Run code_context. E.g., :CodeContext --preset python --copy",
 	complete = function()
-		return { "--preset ", "--repo ", "--tree", "--copy" }
+		return { "--preset ", "--tree", "--copy" }
 	end,
 })
 
